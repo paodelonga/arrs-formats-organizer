@@ -1,65 +1,138 @@
 import os
-import sys
-import time
-import random
+import re
+import shutil
 import pathlib
-import logging
 import json
-import uuid
+from uuid import uuid4
 
-# Enviroments
-SOURCE_PATH = pathlib.Path(f"{os.path.dirname(__file__)}/source").absolute()
-DEST_PATH = pathlib.Path(f"{os.path.dirname(__file__)}/dest").absolute()
-CUSTOM_FORMATS_PATH = pathlib.Path(f"{SOURCE_PATH}/custom-formats").absolute()
+class Application:
+  def __init__(self):
+    self.SOURCE_PATH = pathlib.Path(f"{os.path.dirname(__file__)}/source").absolute()
+    self.DEST_PATH = pathlib.Path(f"{os.path.dirname(__file__)}/dest").absolute()
+    self.CUSTOM_FORMATS_PATH = pathlib.Path(f"{self.SOURCE_PATH}/custom-formats").absolute()
 
-# Aplications
-applications = {
-  str(uuid.uuid1()): {
-    'path': str(pathlib.Path(f"{CUSTOM_FORMATS_PATH}/sonarr").absolute()),
-    'raw_data': {},
-    'cooked_data': {}
-  },
-  str(uuid.uuid1()): {
-    'path': str(pathlib.Path(f"{CUSTOM_FORMATS_PATH}/radarr").absolute()),
-    'raw_data': {},
-    'cooked_data': {}
-  }
-}
+    [pathlib.Path(x).mkdir(exist_ok=True) for x in [self.DEST_PATH, self.SOURCE_PATH, self.CUSTOM_FORMATS_PATH]]
 
-# Rawdata
-for _app_uuid in applications:
-  for _app_files in os.listdir(applications[_app_uuid]['path']):
-    _file_uuid = str(uuid.uuid1())
-    applications[_app_uuid]['raw_data'][_file_uuid] = {}
+  def register_db(self):
+    database = {
+      'application': {
+      }
+    }
 
-    applications[_app_uuid]['raw_data'][_file_uuid].update({'full_name': _app_files})
-    applications[_app_uuid]['raw_data'][_file_uuid].update({'full_path': str(pathlib.Path(f"{applications[_app_uuid]['path']}/{_app_files}"))})
-    applications[_app_uuid]['raw_data'][_file_uuid].update({'raw_data': json.load(open(pathlib.Path(f"{applications[_app_uuid]['path']}/{_app_files}"), 'r'))})
+    for db_app in os.listdir(self.CUSTOM_FORMATS_PATH):
+      database['application'].update({
+        str(uuid4()): {
+          'name': f"{db_app}",
+          'path': f"{self.CUSTOM_FORMATS_PATH}/{db_app}",
+          'custom_formats': {},
+          'filtered_data': {}
+        }
+      })
 
-# Processed data
-for _app_uuid in applications:
-  for _file_uuid in applications[_app_uuid]['raw_data']:
-    _item_uuid = str(uuid.uuid1())
-    applications[_app_uuid]['cooked_data'][_item_uuid] = {}
+    return database
 
-    applications[_app_uuid]['cooked_data'][_item_uuid].update({'trash_id': applications[_app_uuid]['raw_data'][_file_uuid]['raw_data']['trash_id']})
-    applications[_app_uuid]['cooked_data'][_item_uuid].update({'trash_colection': applications[_app_uuid]['raw_data'][_file_uuid]['raw_data']['name'].split(': ')[-0]})
-    applications[_app_uuid]['cooked_data'][_item_uuid].update({'trash_name': applications[_app_uuid]['raw_data'][_file_uuid]['raw_data']['name'].split(': ')[-1]})
-    applications[_app_uuid]['cooked_data'][_item_uuid].update({'file_collection': applications[_app_uuid]['raw_data'][_file_uuid]['full_name'].split('-')[-0]})
-    applications[_app_uuid]['cooked_data'][_item_uuid].update({'file_name': applications[_app_uuid]['raw_data'][_file_uuid]['full_name'].split('-')[-1].replace('.json','')})
-    try:
-      applications[_app_uuid]['cooked_data'][_item_uuid].update({'trash_scores': applications[_app_uuid]['raw_data'][_file_uuid]['raw_data']['trash_scores']['default']})
-    except:
-      pass
+  def read_db(self, new_db: dict):
+    database = new_db
+    for app_uuid in database['application']:
+      for custom_format in os.listdir(database['application'][app_uuid]['path']):
+        custom_format_uuid = str(uuid4())
 
-json.dump(applications,open(f"{DEST_PATH}/dump.json", 'w'),indent=2)
+        database['application'][app_uuid]['custom_formats'].update({
+          custom_format_uuid: {
+            'filename': custom_format,
+            'path': f"{database['application'][app_uuid]['path']}/{custom_format}",
+            'file_content': json.load(open(f"{database['application'][app_uuid]['path']}/{custom_format}", 'r'))
+          }
+        })
+
+    return database
+
+  def filter_db(self, raw_db: dict):
+    database = raw_db
+    for app_uuid in database['application']:
+      for custom_format_uuid in database['application'][app_uuid]['custom_formats']:
+        filtered_data_uuid = str(uuid4())
+
+        database['application'][app_uuid]['filtered_data'].update({
+          filtered_data_uuid: {
+            'custom_format': {
+              'relative_uuid': custom_format_uuid,
+              'trash_id': f"{database['application'][app_uuid]['custom_formats'][custom_format_uuid]['file_content']['trash_id']}",
+              'trash_score': '',
+              'trash_collection': f"{database['application'][app_uuid]['custom_formats'][custom_format_uuid]['file_content']['name'].split(': ',1)[0]}",
+              'trash_name': f"{database['application'][app_uuid]['custom_formats'][custom_format_uuid]['file_content']['name'].split(': ',1)[-1]}",
+            },
+            'file': {
+              'fullpath': database['application'][app_uuid]['custom_formats'][custom_format_uuid]['path'],
+              'filename': {
+                'old': database['application'][app_uuid]['custom_formats'][custom_format_uuid]['filename'],
+                'new': f"",
+                'trash_collection': database['application'][app_uuid]['custom_formats'][custom_format_uuid]['filename'].split('-',1)[0],
+                'trash_name': database['application'][app_uuid]['custom_formats'][custom_format_uuid]['filename'].split('-',1)[-1].replace('.json',''),
+              },
+              'content': database['application'][app_uuid]['custom_formats'][custom_format_uuid]['file_content']
+            }
+          }
+        })
+
+        try:
+          database['application'][app_uuid]['filtered_data'][filtered_data_uuid]['custom_format'].update({
+            'trash_score': database['application'][app_uuid]['custom_formats'][custom_format_uuid]['file_content']['trash_scores']['default']
+          })
+          database['application'][app_uuid]['filtered_data'][filtered_data_uuid]['file']['filename'].update({
+            'new': '-'.join([
+              str(database['application'][app_uuid]['filtered_data'][filtered_data_uuid]['custom_format']['trash_score']),
+              str(database['application'][app_uuid]['filtered_data'][filtered_data_uuid]['file']['filename']['trash_collection']),
+              str(database['application'][app_uuid]['filtered_data'][filtered_data_uuid]['file']['filename']['trash_name'])
+            ])
+          })
+        except KeyError as KE:
+          database['application'][app_uuid]['filtered_data'][filtered_data_uuid]['custom_format'].update({
+            'trash_score': 0
+          })
+          database['application'][app_uuid]['filtered_data'][filtered_data_uuid]['file']['filename'].update({
+            'new': '-'.join([
+              str(database['application'][app_uuid]['filtered_data'][filtered_data_uuid]['custom_format']['trash_score']),
+              str(database['application'][app_uuid]['filtered_data'][filtered_data_uuid]['file']['filename']['trash_collection']),
+              str(database['application'][app_uuid]['filtered_data'][filtered_data_uuid]['file']['filename']['trash_name'])
+            ])
+          })
+
+    return database
+
+  def save_files(self, db):
+    database = db
+    # print(json.dumps(database, indent=2))
+    for app_uuid in database['application']:
+      app_dest_path = pathlib.Path(f"{self.DEST_PATH}/custom-formats/{database['application'][app_uuid]['name']}")
+
+      if app_dest_path.exists():
+        shutil.rmtree(app_dest_path)
+
+      app_dest_path.mkdir(parents=True, exist_ok=True)
+
+      for filtered_data_uuid in database['application'][app_uuid]['filtered_data']:
+        new_filename = database['application'][app_uuid]['filtered_data'][filtered_data_uuid]['file']['filename']['new']
+        new_filepath = pathlib.Path(f"{app_dest_path}/{new_filename}.json")
+        dump_filepath = pathlib.Path(f"{self.DEST_PATH}/custom-formats/dump.json")
+
+        with open(new_filepath, 'w') as custom_format_file:
+          json.dump(
+            database['application'][app_uuid]['filtered_data'][filtered_data_uuid]['file']['content'],
+            custom_format_file,
+            indent=2
+          )
+
+        with open(dump_filepath, 'w') as dump_file:
+          json.dump(database, dump_file, indent=2)
 
 
-# On terminal run `main.py | sort -rn`
-for a in applications:
-  for b in applications[a]['cooked_data']:
-    # for c in applications[a]['cooked_data'][c]:
-    try:
-      print(f"{applications[a]['cooked_data'][b]['trash_scores']}.{applications[a]['cooked_data'][b]['file_collection']}.{applications[a]['cooked_data'][b]['file_name']}.json")
-    except:
-      pass
+  def run(self):
+    REGISTERED_DB = self.register_db()
+    RAW_DB = self.read_db(REGISTERED_DB)
+    FILTERED_DB = self.filter_db(RAW_DB)
+    self.save_files(FILTERED_DB)
+
+if __name__ == '__main__':
+  app = Application()
+  app.run()

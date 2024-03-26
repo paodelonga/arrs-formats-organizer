@@ -1,55 +1,65 @@
 {
-  "trash_id": "90a6f9a284dff5103f6346090e6280c8",
+  "trash_id": "9965a052eb87b0d10313b1cea89eb451",
   "trash_scores": {
-    "default": -10000
+    "default": 1900,
+    "anime-sonarr": 1050
   },
-  "name": "Unwanted: LQ",
+  "name": "HQ Release: Remux Tier 01",
   "includeCustomFormatWhenRenaming": false,
   "specifications": [
     {
-      "name": "GalaxyRG",
-      "implementation": "ReleaseGroupSpecification",
+      "name": "Remux",
+      "implementation": "SourceSpecification",
       "negate": false,
-      "required": false,
+      "required": true,
       "fields": {
-        "value": "^(GalaxyRG)$"
+        "value": 7
       }
     },
     {
-      "name": "MeGusta",
+      "name": "BLURANiUM",
       "implementation": "ReleaseGroupSpecification",
       "negate": false,
       "required": false,
       "fields": {
-        "value": "^(MeGusta)$"
+        "value": "^(BLURANiUM)$"
       }
     },
     {
-      "name": "RARBG",
+      "name": "BMF",
       "implementation": "ReleaseGroupSpecification",
       "negate": false,
       "required": false,
       "fields": {
-        "value": "^(RARBG)$"
+        "value": "^(BMF)$"
       }
     },
     {
-      "name": "YIFY",
+      "name": "FraMeSToR",
       "implementation": "ReleaseGroupSpecification",
       "negate": false,
       "required": false,
       "fields": {
-        "value": "^(YIFY)$"
+        "value": "^(FraMeSToR)$"
       }
     },
     {
-      "name": "YTS",
+      "name": "PmP",
       "implementation": "ReleaseGroupSpecification",
       "negate": false,
       "required": false,
       "fields": {
-        "value": "^(YTS(.(MX|LT|AG))?)$"
+        "value": "^(PmP)$"
+      }
+    },
+    {
+      "name": "SiCFoI",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(SiCFoI)$"
+      }
     }
-  }
   ]
 }
