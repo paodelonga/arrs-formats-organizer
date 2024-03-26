@@ -114,13 +114,18 @@ class Application:
       for filtered_data_uuid in database['application'][app_uuid]['filtered_data']:
         new_filename = database['application'][app_uuid]['filtered_data'][filtered_data_uuid]['file']['filename']['new']
         new_filepath = pathlib.Path(f"{app_dest_path}/{new_filename}.json")
+        dump_filepath = pathlib.Path(f"{self.DEST_PATH}/custom-formats/dump.json")
 
-        with open(new_filepath, 'w') as new_file:
+        with open(new_filepath, 'w') as custom_format_file:
           json.dump(
             database['application'][app_uuid]['filtered_data'][filtered_data_uuid]['file']['content'],
-            new_file,
+            custom_format_file,
             indent=2
           )
+
+        with open(dump_filepath, 'w') as dump_file:
+          json.dump(database, dump_file, indent=2)
+
 
   def run(self):
     REGISTERED_DB = self.register_db()
